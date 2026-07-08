@@ -1,0 +1,268 @@
+/* globals.css - Amiko Premium Design System */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@600;700;800;900&display=swap');
+
+:root {
+  /* Premium Palette: Coral Peach to Sunset Gold */
+  --primary-coral: hsl(14, 95%, 60%);
+  --primary-coral-dark: hsl(14, 90%, 50%);
+  --primary-coral-soft: rgba(255, 87, 34, 0.08);
+  --accent-sunny: hsl(38, 98%, 56%);
+  --accent-sunny-soft: rgba(255, 167, 38, 0.08);
+  
+  --success-mint: hsl(145, 63%, 42%);
+  --success-mint-soft: rgba(46, 125, 50, 0.08);
+  --danger-crimson: hsl(354, 76%, 49%);
+  --danger-crimson-soft: rgba(211, 47, 47, 0.08);
+  --info-sky: hsl(200, 95%, 45%);
+  --info-sky-soft: rgba(2, 136, 209, 0.08);
+  --warning-amber: hsl(45, 95%, 48%);
+  --warning-amber-soft: rgba(245, 127, 23, 0.08);
+
+  /* Light Theme Defaults */
+  --background: #f8fafc;
+  --card-bg: #ffffff;
+  --text-primary: #0f172a;
+  --text-muted: #64748b;
+  --border-color: #e2e8f0;
+  
+  /* Font Families */
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-headers: 'Outfit', sans-serif;
+  
+  /* Font size multiplier for accessibility */
+  --text-scale: 1;
+
+  /* Glassmorphism Specs (Frosted Premium look) */
+  --glass-bg: rgba(255, 255, 255, 0.65);
+  --glass-border: rgba(255, 255, 255, 0.6);
+  --glass-shadow: 0 10px 40px -10px rgba(15, 23, 42, 0.08);
+  
+  --safe-bottom: 24px;
+}
+
+/* Dark Theme overrides */
+.dark-theme {
+  --background: #090d16;
+  --card-bg: #111827;
+  --text-primary: #f9fafb;
+  --text-muted: #9ca3af;
+  --border-color: #1f2937;
+
+  --glass-bg: rgba(17, 24, 39, 0.7);
+  --glass-border: rgba(255, 255, 255, 0.05);
+  --glass-shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
+}
+
+/* High Contrast theme overrides */
+.high-contrast {
+  --background: #000000;
+  --card-bg: #000000;
+  --text-primary: #ffffff;
+  --text-muted: #f3f4f6;
+  --border-color: #ffffff;
+  
+  --primary-coral: #ff5722;
+  --accent-sunny: #ffeb3b;
+  --success-mint: #00ff00;
+  --danger-crimson: #ff0000;
+  --info-sky: #00ffff;
+  
+  --glass-bg: #000000;
+  --glass-border: #ffffff;
+  --glass-shadow: none;
+}
+
+/* Reset and Core Layout */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: calc(16px * var(--text-scale));
+  line-height: 1.5;
+  overflow-x: hidden;
+  transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Gradient background mesh animation */
+.bg-mesh-gradient {
+  background-color: #f8fafc;
+  background-image: 
+    radial-gradient(at 0% 0%, rgba(255, 87, 34, 0.07) 0px, transparent 50%),
+    radial-gradient(at 100% 0%, rgba(255, 167, 38, 0.07) 0px, transparent 50%),
+    radial-gradient(at 100% 100%, rgba(3, 169, 244, 0.05) 0px, transparent 50%),
+    radial-gradient(at 0% 100%, rgba(76, 175, 80, 0.05) 0px, transparent 50%);
+  background-size: 200% 200%;
+  animation: mesh-move 18s ease infinite;
+}
+
+@keyframes mesh-move {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-headers);
+  color: var(--text-primary);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+button {
+  font-family: var(--font-sans);
+  cursor: pointer;
+  border: none;
+  background: none;
+  outline: none;
+}
+
+input, textarea, select {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Glassmorphic Panel utility */
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  border-radius: 28px;
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-card:hover {
+  border-color: rgba(255, 87, 34, 0.15);
+}
+
+/* Accessibility overrides for text size */
+.text-large {
+  --text-scale: 1.2;
+}
+
+.text-xlarge {
+  --text-scale: 1.35;
+}
+
+/* Micro-interaction animations */
+@keyframes sos-hold-glow {
+  0% { box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.6), 0 0 30px rgba(211, 47, 47, 0.2); }
+  70% { box-shadow: 0 0 0 25px rgba(211, 47, 47, 0), 0 0 40px rgba(211, 47, 47, 0.4); }
+  100% { box-shadow: 0 0 0 0 rgba(211, 47, 47, 0), 0 0 0 rgba(211, 47, 47, 0); }
+}
+
+.sos-pulse {
+  animation: sos-hold-glow 1.4s infinite;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+/* Scrollbar Customization */
+.screen-scroll::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.screen-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(148, 163, 184, 0.3);
+  border-radius: 10px;
+}
+.screen-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Premium 3D Phone Mockup Showcase */
+.phone-mockup-wrapper {
+  perspective: 1500px;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.phone-mockup-frame {
+  width: 385px;
+  height: 785px;
+  border: 14px solid #1e293b;
+  border-radius: 52px;
+  background-color: var(--card-bg);
+  box-shadow: 
+    0 25px 60px -15px rgba(15, 23, 42, 0.25),
+    0 0 0 1px rgba(15, 23, 42, 0.05),
+    inset 0 0 10px rgba(0, 0, 0, 0.8);
+  overflow: hidden;
+  position: relative;
+  transition: transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.6s ease;
+  transform-style: preserve-3d;
+}
+
+/* Phone screen reflection effect */
+.phone-mockup-frame::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 200%;
+  height: 100%;
+  background: linear-gradient(115deg, rgba(255,255,255,0.06) 0%, rgba(255,255,255,0.02) 20%, transparent 40%);
+  pointer-events: none;
+  z-index: 100;
+  transform: translateX(-50%);
+}
+
+.phone-mockup-frame:hover {
+  transform: rotateX(8deg) rotateY(-8deg) scale3d(1.02, 1.02, 1.02);
+  box-shadow: 
+    -20px 30px 70px -10px rgba(15, 23, 42, 0.3),
+    0 0 0 1px rgba(15, 23, 42, 0.08);
+}
+
+/* Custom premium buttons */
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary-coral) 0%, var(--primary-coral-dark) 100%);
+  color: white;
+  border-radius: 18px;
+  font-weight: 800;
+  box-shadow: 0 4px 15px -3px rgba(255, 87, 34, 0.3);
+  transition: all 0.2s ease;
+}
+.btn-primary:active {
+  transform: scale(0.97);
+  box-shadow: 0 2px 5px -1px rgba(255, 87, 34, 0.2);
+}
+
+.btn-secondary {
+  background: var(--card-bg);
+  border: 1.5px solid var(--border-color);
+  color: var(--text-primary);
+  border-radius: 18px;
+  font-weight: 700;
+  transition: all 0.2s ease;
+}
+.btn-secondary:hover {
+  border-color: var(--primary-coral);
+  background-color: var(--primary-coral-soft);
+}
+.btn-secondary:active {
+  transform: scale(0.97);
+}
+
+.avatar-badge {
+  box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
