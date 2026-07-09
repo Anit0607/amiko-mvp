@@ -160,11 +160,24 @@ export default function ElderPwa({
 
   const handleCreateBooking = () => {
     const couponCosts = {
-      'BP Check': 2, 'Blood Sugar Check': 2, 'Physiotherapy': 5, 'Lab Test Assistance': 4,
-      'Medication Reminder': 1, 'Hospital Visit': 6, 'Bank Visit': 6, 'Pharmacy Visit': 3,
-      'Temple Visit': 4, 'Grocery Shopping': 3, 'Medicine Pickup': 3, 'Utility Bill Assistance': 2,
-      'Document Submission': 3, 'Electrician': 5, 'Plumber': 5, 'Carpenter': 5,
-      'Appliance Repair': 6, 'Emergency Home Maintenance': 8
+      'BP Check': 2,
+      'Blood Sugar Check': 2,
+      'Lab Test Assistance': 4,
+      'Physiotherapy': 5,
+      'Medication Reminder': 1,
+      'Pharmacy Visit': 3,
+      'Temple Visit': 4,
+      'Hospital Visit': 6,
+      'Bank Visit': 6,
+      'Government Office Visit': 6,
+      'Utility Bill Assistance': 2,
+      'Grocery Shopping': 3,
+      'Medicine Pickup': 3,
+      'Document Submission': 3,
+      'Electrician / Plumber / Carpenter': 5,
+      'Appliance Repair': 6,
+      'Emergency Home Maintenance': 8,
+      'Emergency Home Visit': 4
     };
 
     const cost = couponCosts[selectedService] || 3;
@@ -459,10 +472,10 @@ export default function ElderPwa({
               {(selectedCategory.id === 'health' 
                 ? ['BP Check (2 Coupons)', 'Blood Sugar Check (2 Coupons)', 'Physiotherapy (5 Coupons)', 'Lab Test Assistance (4 Coupons)', 'Medication Reminder (1 Coupon)']
                 : selectedCategory.id === 'travel'
-                ? ['Hospital Visit (6 Coupons)', 'Bank Visit (6 Coupons)', 'Pharmacy Visit (3 Coupons)', 'Temple Visit (4 Coupons)']
+                ? ['Pharmacy Visit (3 Coupons)', 'Temple Visit (4 Coupons)', 'Hospital Visit (6 Coupons)', 'Bank Visit (6 Coupons)', 'Government Office Visit (6 Coupons)']
                 : selectedCategory.id === 'shopping'
-                ? ['Grocery Shopping (3 Coupons)', 'Medicine Pickup (3 Coupons)', 'Utility Bill Assistance (2 Coupons)', 'Document Submission (3 Coupons)']
-                : ['Electrician (5 Coupons)', 'Plumber (5 Coupons)', 'Carpenter (5 Coupons)', 'Appliance Repair (6 Coupons)', 'Emergency Maintenance (8 Coupons)']
+                ? ['Utility Bill Assistance (2 Coupons)', 'Grocery Shopping (3 Coupons)', 'Medicine Pickup (3 Coupons)', 'Document Submission (3 Coupons)']
+                : ['Electrician / Plumber / Carpenter (5 Coupons)', 'Appliance Repair (6 Coupons)', 'Emergency Home Maintenance (8 Coupons)']
               ).map(label => {
                 const cleanLabel = label.split(' (')[0];
                 const costText = label.split(' (')[1].replace(')', '');

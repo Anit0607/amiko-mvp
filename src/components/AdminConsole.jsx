@@ -85,7 +85,26 @@ export default function AdminConsole({
 
   const handleAssistedBooking = (e) => {
     e.preventDefault();
-    const costs = { 'BP Check': 2, 'Physiotherapy': 5, 'Hospital Visit': 6 };
+    const costs = {
+      'BP Check': 2,
+      'Blood Sugar Check': 2,
+      'Lab Test Assistance': 4,
+      'Physiotherapy': 5,
+      'Medication Reminder': 1,
+      'Pharmacy Visit': 3,
+      'Temple Visit': 4,
+      'Hospital Visit': 6,
+      'Bank Visit': 6,
+      'Government Office Visit': 6,
+      'Utility Bill Assistance': 2,
+      'Grocery Shopping': 3,
+      'Medicine Pickup': 3,
+      'Document Submission': 3,
+      'Electrician / Plumber / Carpenter': 5,
+      'Appliance Repair': 6,
+      'Emergency Home Maintenance': 8,
+      'Emergency Home Visit': 4
+    };
     const cost = costs[assistedSvc] || 3;
 
     if (walletBalance < cost) {
@@ -274,8 +293,23 @@ export default function AdminConsole({
                   <label className="text-[10px] font-bold text-slate-500 block mb-1">Service Type</label>
                   <select value={assistedSvc} onChange={e => setAssistedSvc(e.target.value)} className="w-full h-11 px-3 border border-slate-800 rounded-xl bg-[#0b0f19] outline-none text-xs text-slate-300 font-semibold">
                     <option>BP Check</option>
+                    <option>Blood Sugar Check</option>
+                    <option>Lab Test Assistance</option>
                     <option>Physiotherapy</option>
+                    <option>Medication Reminder</option>
+                    <option>Pharmacy Visit</option>
+                    <option>Temple Visit</option>
                     <option>Hospital Visit</option>
+                    <option>Bank Visit</option>
+                    <option>Government Office Visit</option>
+                    <option>Utility Bill Assistance</option>
+                    <option>Grocery Shopping</option>
+                    <option>Medicine Pickup</option>
+                    <option>Document Submission</option>
+                    <option>Electrician / Plumber / Carpenter</option>
+                    <option>Appliance Repair</option>
+                    <option>Emergency Home Maintenance</option>
+                    <option>Emergency Home Visit</option>
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
