@@ -12,6 +12,19 @@ export default function BuddyPage() {
   const [bookings, setBookings] = useState([]);
   const [walletBalance, setWalletBalance] = useState(18);
 
+  const loadBackendState = async () => {
+    try {
+      // 1. Fetch active bookings (jobs)
+      const bRes = await fetch('/api/bookings');
+      if (bRes.ok) {
+        const bData = await bRes.json();
+        setBookings(bData.bookings || []);
+      }
+    } catch (err) {
+      console.error('Error fetching jobs details:', err);
+    }
+  };
+
   useEffect(() => {
     const rawSession = localStorage.getItem('amiko_session');
     if (!rawSession) {
@@ -26,41 +39,73 @@ export default function BuddyPage() {
     }
     setSession(parsed);
 
-    // Initial state loading
-    const loadState = () => {
-      const bal = localStorage.getItem('amiko_wallet_balance');
-      if (bal !== null) setWalletBalance(parseInt(bal));
+    loadBackendState();
 
-      const bks = localStorage.getItem('amiko_bookings');
-      if (bks) setBookings(JSON.parse(bks));
-    };
-
-    loadState();
-
-    // Sync tab status updates
     const handleStorageChange = (e) => {
-      if (e.key === 'amiko_wallet_balance' && e.newValue !== null) {
-        setWalletBalance(parseInt(e.newValue));
-      }
-      if (e.key === 'amiko_bookings' && e.newValue) {
-        setBookings(JSON.parse(e.newValue));
+      if (e.key === 'amiko_bookings') {
+        loadBackendState();
       }
     };
-
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    
+    const interval = setInterval(loadBackendState, 4000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
   }, [router]);
 
-  const updateBookings = (newBks) => {
-    setBookings(newBks);
-    localStorage.setItem('amiko_bookings', JSON.stringify(newBks));
+  // Handle job status updates
+  const updateBookings = async (newBks) => {
+    // Find active job status change
+    const currentActive = bookings.find(b => b.status === 'buddy_assigned' || b.status === 'buddy_en_route' || b.status === 'service_started');
+    const updatedRecord = newBks.find(b => b.id === currentActive?.id);
+
+    if (updatedRecord) {
+      try {
+        if (updatedRecord.status === 'buddy_en_route') {
+          // Start Trip
+          const res = await fetch(`/api/buddy/jobs/${updatedRecord.id}/start`, { method: 'POST' });
+          if (res.ok) {
+            localStorage.setItem('amiko_bookings', Date.now().toString());
+            loadBackendState();
+          }
+        } else if (updatedRecord.status === 'service_started') {
+          // Arrived check-in (simulate state locally or add endpoint)
+          const dbData = localStorage.getItem('amiko_bookings') || '';
+          localStorage.setItem('amiko_bookings', Date.now().toString());
+          loadBackendState();
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
   };
 
-  const updateTransactions = (cb) => {
-    const rawTx = localStorage.getItem('amiko_transactions') || '[]';
-    const txList = JSON.parse(rawTx);
-    const updated = cb(txList);
-    localStorage.setItem('amiko_transactions', JSON.stringify(updated));
+  // Complete job with physical OTP check
+  const handleCompleteService = async (jobId, otp) => {
+    try {
+      const res = await fetch(`/api/buddy/jobs/${jobId}/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ otp })
+      });
+      if (res.ok) {
+        localStorage.setItem('amiko_bookings', Date.now().toString());
+        loadBackendState();
+        alert('Helper passcode matched. Visit closed.');
+        return true;
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Incorrect helper passcode');
+        return false;
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error. Visit completion failed.');
+      return false;
+    }
   };
 
   if (!session) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-sm font-bold text-slate-500">Checking gates...</div>;
@@ -71,7 +116,7 @@ export default function BuddyPage() {
         <CareBuddyPortal
           bookings={bookings}
           setBookings={updateBookings}
-          setTransactions={updateTransactions}
+          onCompleteService={handleCompleteService}
           walletBalance={walletBalance}
         />
       </div>

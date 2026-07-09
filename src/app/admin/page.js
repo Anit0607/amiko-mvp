@@ -8,12 +8,48 @@ export default function AdminPage() {
   const router = useRouter();
   const [session, setSession] = useState(null);
 
-  // Synced states
+  //Synched states
   const [profile, setProfile] = useState(null);
   const [isApproved, setIsApproved] = useState(false);
   const [walletBalance, setWalletBalance] = useState(18);
   const [bookings, setBookings] = useState([]);
   const [sosEvent, setSosEvent] = useState(null);
+
+  const loadBackendState = async () => {
+    try {
+      // 1. Fetch registered elder
+      const elderProfile = localStorage.getItem('amiko_registered_elder');
+      if (elderProfile) {
+        const prof = JSON.parse(elderProfile);
+        setProfile(prof);
+        setIsApproved(prof.status === 'active');
+        
+        // Fetch wallet balance for the linked elder's guardian
+        const wRes = await fetch(`/api/wallet?phone=+91+98123+45678`); // Guardian phone
+        if (wRes.ok) {
+          const wData = await wRes.json();
+          setWalletBalance(wData.balance);
+        }
+      }
+
+      // 2. Fetch all bookings
+      const bRes = await fetch('/api/bookings');
+      if (bRes.ok) {
+        const bData = await bRes.json();
+        setBookings(bData.bookings || []);
+      }
+
+      // 3. Fetch active SOS events
+      const sRes = await fetch('/api/sos');
+      if (sRes.ok) {
+        const sData = await sRes.json();
+        const activeSos = sData.sos_events?.find(s => s.phone === '+91 98765 43210');
+        setSosEvent(activeSos || null);
+      }
+    } catch (err) {
+      console.error('Error fetching admin states:', err);
+    }
+  };
 
   useEffect(() => {
     const rawSession = localStorage.getItem('amiko_session');
@@ -29,83 +65,141 @@ export default function AdminPage() {
     }
     setSession(parsed);
 
-    // Initial state loading
-    const loadState = () => {
-      const elderProfile = localStorage.getItem('amiko_registered_elder');
-      if (elderProfile) {
-        const prof = JSON.parse(elderProfile);
-        setProfile(prof);
-        setIsApproved(prof.status === 'active');
-      }
+    loadBackendState();
 
-      const bal = localStorage.getItem('amiko_wallet_balance');
-      if (bal !== null) setWalletBalance(parseInt(bal));
-
-      const bks = localStorage.getItem('amiko_bookings');
-      if (bks) setBookings(JSON.parse(bks));
-
-      const sos = localStorage.getItem('amiko_sos_event');
-      if (sos) setSosEvent(JSON.parse(sos));
-    };
-
-    loadState();
-
-    // Cross-tab storage updates
     const handleStorageChange = (e) => {
-      if (e.key === 'amiko_wallet_balance' && e.newValue !== null) {
-        setWalletBalance(parseInt(e.newValue));
-      }
-      if (e.key === 'amiko_bookings' && e.newValue) {
-        setBookings(JSON.parse(e.newValue));
-      }
-      if (e.key === 'amiko_sos_event') {
-        setSosEvent(e.newValue ? JSON.parse(e.newValue) : null);
-      }
-      if (e.key === 'amiko_registered_elder' && e.newValue) {
-        const prof = JSON.parse(e.newValue);
-        setProfile(prof);
-        setIsApproved(prof.status === 'active');
+      if (e.key === 'amiko_bookings' || e.key === 'amiko_wallet_balance' || e.key === 'amiko_sos_event') {
+        loadBackendState();
       }
     };
-
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    
+    const interval = setInterval(loadBackendState, 4000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
   }, [router]);
 
-  const updateApproval = (approved) => {
-    setIsApproved(approved);
-    if (profile) {
-      const updated = { ...profile, status: approved ? 'active' : 'pending' };
-      setProfile(updated);
-      localStorage.setItem('amiko_registered_elder', JSON.stringify(updated));
-      // Also update under their phone number
-      localStorage.setItem(`amiko_profile_${profile.phone}`, JSON.stringify(updated));
+  // Admin approves elder registration
+  const updateApproval = async (approved) => {
+    if (!profile) return;
+    try {
+      const res = await fetch('/api/admin/approve-elder', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ elder_phone: profile.phone })
+      });
+
+      if (res.ok) {
+        setIsApproved(approved);
+        const updated = { ...profile, status: approved ? 'active' : 'pending' };
+        setProfile(updated);
+        localStorage.setItem('amiko_registered_elder', JSON.stringify(updated));
+        localStorage.setItem(`amiko_profile_${profile.phone}`, JSON.stringify(updated));
+        
+        // Notify other components
+        localStorage.setItem('amiko_wallet_balance', Date.now().toString());
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
-  const updateBookings = (newBks) => {
-    setBookings(newBks);
-    localStorage.setItem('amiko_bookings', JSON.stringify(newBks));
+  // Admin assigns Care Buddy to booking
+  const updateBookings = async (newBks) => {
+    // Find the booking that has just been assigned a buddy
+    const currentRequested = bookings.filter(b => b.status === 'requested');
+    const updatedRecord = newBks.find(b => b.status === 'buddy_assigned');
+
+    if (updatedRecord) {
+      try {
+        const res = await fetch(`/api/bookings/${updatedRecord.id}/assign`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ buddy_name: updatedRecord.buddy?.name })
+        });
+        if (res.ok) {
+          localStorage.setItem('amiko_bookings', Date.now().toString());
+          loadBackendState();
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    } else {
+      // If admin creates booking on behalf of elder
+      const latestBk = newBks[0];
+      try {
+        const res = await fetch('/api/bookings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            service_label: latestBk.service_label,
+            date: latestBk.scheduled_date,
+            slot: latestBk.scheduled_time_slot,
+            cost: latestBk.cost,
+            phone: '+91 98765 43210' // Margaret phone
+          })
+        });
+
+        if (res.ok) {
+          localStorage.setItem('amiko_bookings', Date.now().toString());
+          loadBackendState();
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
   };
 
-  const updateWallet = (newBal) => {
-    setWalletBalance(newBal);
-    localStorage.setItem('amiko_wallet_balance', newBal.toString());
+  const updateWallet = async (newBal) => {
+    // Manual adjustments
+    try {
+      const res = await fetch('/api/payments/webhook', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          order_id: `manual_adj_${Date.now()}`,
+          coupons: 5,
+          phone: '+91 98123 45678' // Sarah phone
+        })
+      });
+      if (res.ok) {
+        localStorage.setItem('amiko_wallet_balance', Date.now().toString());
+        loadBackendState();
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   const updateTransactions = (cb) => {
-    const rawTx = localStorage.getItem('amiko_transactions') || '[]';
-    const txList = JSON.parse(rawTx);
-    const updated = cb(txList);
-    localStorage.setItem('amiko_transactions', JSON.stringify(updated));
+    // Audit logs handled server side
   };
 
-  const updateSos = (newSos) => {
-    setSosEvent(newSos);
-    if (newSos) {
-      localStorage.setItem('amiko_sos_event', JSON.stringify(newSos));
-    } else {
-      localStorage.removeItem('amiko_sos_event');
+  // Admin manages active SOS events
+  const updateSos = async (newSos) => {
+    if (!sosEvent) return;
+
+    try {
+      if (newSos && newSos.status === 'acknowledged') {
+        const res = await fetch(`/api/sos/${sosEvent.id}/acknowledge`, { method: 'POST' });
+        if (res.ok) {
+          localStorage.setItem('amiko_sos_event', Date.now().toString());
+          loadBackendState();
+        }
+      } else if (!newSos) {
+        const res = await fetch(`/api/sos/${sosEvent.id}/resolve`, { method: 'POST' });
+        if (res.ok) {
+          setSosEvent(null);
+          localStorage.removeItem('amiko_sos_event');
+          localStorage.setItem('amiko_sos_event', Date.now().toString());
+          loadBackendState();
+        }
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 

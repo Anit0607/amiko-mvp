@@ -46,7 +46,7 @@ export default function OnboardingPage() {
     }
   }, [router]);
 
-  const handleSubmitElder = () => {
+  const handleSubmitElder = async () => {
     if (!consentElder || !consentGuardian || !consentLocation || !consentMedical || !consentDisclaimer) {
       alert("Please accept all care agreements to complete registration.");
       return;
@@ -66,24 +66,58 @@ export default function OnboardingPage() {
       status: 'pending'
     };
 
-    localStorage.setItem(`amiko_profile_${phone}`, JSON.stringify(profileData));
-    
-    // Also save default elder account to the global storage for linking
-    localStorage.setItem('amiko_registered_elder', JSON.stringify(profileData));
-    
-    router.push('/elder');
+    try {
+      const res = await fetch('/api/elders/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone,
+          name,
+          age,
+          address,
+          city_locality: locality,
+          medical_conditions: medical,
+          guardian_phone: guardianPhone
+        })
+      });
+
+      if (res.ok) {
+        localStorage.setItem(`amiko_profile_${phone}`, JSON.stringify(profileData));
+        localStorage.setItem('amiko_registered_elder', JSON.stringify(profileData));
+        router.push('/elder');
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   // Guardian onboarding flow
-  const handleSubmitGuardian = () => {
+  const handleSubmitGuardian = async () => {
     const profileData = {
       full_name: guardianName,
       phone,
-      linked_elder_phone: '+91 98765 43210',
+      linked_elder_phone: guardianPhone || '+91 98765 43210',
       status: 'active'
     };
-    localStorage.setItem(`amiko_profile_${phone}`, JSON.stringify(profileData));
-    router.push('/guardian');
+
+    try {
+      const res = await fetch('/api/guardians/link', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone,
+          guardian_name: guardianName,
+          elder_phone: guardianPhone || '+91 98765 43210'
+        })
+      });
+
+      if (res.ok) {
+        localStorage.setItem(`amiko_profile_${phone}`, JSON.stringify(profileData));
+        router.push('/guardian');
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   if (!role) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-sm font-bold text-slate-500">Checking credentials...</div>;

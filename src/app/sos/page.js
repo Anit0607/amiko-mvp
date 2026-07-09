@@ -57,24 +57,40 @@ export default function SosPage() {
     }
   };
 
-  const triggerSosAlert = () => {
-    const newSos = {
-      id: crypto.randomUUID(),
-      elder_id: 'margaret-wilson-id',
-      gps_lat: 12.9716,
-      gps_lng: 77.5946,
-      status: 'active',
-      created_at: new Date().toISOString()
-    };
-    setSosEvent(newSos);
-    localStorage.setItem('amiko_sos_event', JSON.stringify(newSos));
+  const triggerSosAlert = async () => {
+    if (!session) return;
+    try {
+      const res = await fetch('/api/sos/trigger', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: session.phone })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setSosEvent(data.sos);
+        localStorage.setItem('amiko_sos_event', JSON.stringify(data.sos));
+      }
+    } catch (err) {
+      console.error(err);
+    }
   };
 
-  const handleResolveSos = () => {
-    setSosEvent(null);
-    localStorage.removeItem('amiko_sos_event');
-    if (session && session.role) {
-      router.push(`/${session.role}`);
+  const handleResolveSos = async () => {
+    if (sosEvent) {
+      try {
+        const res = await fetch(`/api/sos/${sosEvent.id}/resolve`, { method: 'POST' });
+        if (res.ok) {
+          setSosEvent(null);
+          localStorage.removeItem('amiko_sos_event');
+          if (session && session.role) {
+            router.push(`/${session.role}`);
+          } else {
+            router.push('/');
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      }
     } else {
       router.push('/');
     }

@@ -9,7 +9,8 @@ export default function CareBuddyPortal({
   bookings,
   setBookings,
   setTransactions,
-  walletBalance
+  walletBalance,
+  onCompleteService
 }) {
   const [otpInput, setOtpInput] = useState('');
   const [buddyEarnings, setBuddyEarnings] = useState(1200.00); // rupees
@@ -35,24 +36,33 @@ export default function CareBuddyPortal({
     }));
   };
 
-  const handleCompleteService = (e) => {
+  const handleCompleteService = async (e) => {
     e.preventDefault();
-    if (otpInput !== activeJob.otp) {
-      alert('Verification OTP does not match. Please verify with Margaret.');
-      return;
-    }
-
-    setBookings(prev => prev.map(bk => {
-      if (bk.id === activeJob.id) {
-        return { ...bk, status: 'service_completed' };
+    if (onCompleteService) {
+      const success = await onCompleteService(activeJob.id, otpInput);
+      if (success) {
+        const payout = activeJob.cost * 40;
+        setBuddyEarnings(prev => prev + payout);
+        setOtpInput('');
       }
-      return bk;
-    }));
+    } else {
+      if (otpInput !== activeJob.otp) {
+        alert('Verification OTP does not match. Please verify with Margaret.');
+        return;
+      }
 
-    const payout = activeJob.cost * 40;
-    setBuddyEarnings(prev => prev + payout);
-    setOtpInput('');
-    alert(`OTP Verified. Visit completed. Payout of ₹${payout} credited.`);
+      setBookings(prev => prev.map(bk => {
+        if (bk.id === activeJob.id) {
+          return { ...bk, status: 'service_completed' };
+        }
+        return bk;
+      }));
+
+      const payout = activeJob.cost * 40;
+      setBuddyEarnings(prev => prev + payout);
+      setOtpInput('');
+      alert(`OTP Verified. Visit completed. Payout of ₹${payout} credited.`);
+    }
   };
 
   return (

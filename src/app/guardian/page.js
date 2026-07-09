@@ -8,12 +8,47 @@ export default function GuardianPage() {
   const router = useRouter();
   const [session, setSession] = useState(null);
 
-  // Synced states
+  //Synched states
   const [profile, setProfile] = useState(null);
   const [walletBalance, setWalletBalance] = useState(18);
   const [transactions, setTransactions] = useState([]);
   const [bookings, setBookings] = useState([]);
   const [sosEvent, setSosEvent] = useState(null);
+
+  const loadBackendState = async (phone) => {
+    try {
+      // 1. Fetch linked elder's profile info
+      const elderProfile = localStorage.getItem('amiko_registered_elder');
+      if (elderProfile) {
+        setProfile(JSON.parse(elderProfile));
+      }
+
+      // 2. Fetch wallet balance & transaction ledger
+      const wRes = await fetch(`/api/wallet?phone=${encodeURIComponent(phone)}`);
+      if (wRes.ok) {
+        const wData = await wRes.json();
+        setWalletBalance(wData.balance);
+        setTransactions(wData.transactions || []);
+      }
+
+      // 3. Fetch elder's bookings
+      const bRes = await fetch('/api/bookings?phone=+91+98765+43210'); // Default linked elder phone
+      if (bRes.ok) {
+        const bData = await bRes.json();
+        setBookings(bData.bookings || []);
+      }
+
+      // 4. Fetch active SOS alerts
+      const sRes = await fetch('/api/sos');
+      if (sRes.ok) {
+        const sData = await sRes.json();
+        const activeSos = sData.sos_events?.find(s => s.phone === '+91 98765 43210');
+        setSosEvent(activeSos || null);
+      }
+    } catch (err) {
+      console.error('Error fetching backend details:', err);
+    }
+  };
 
   useEffect(() => {
     const rawSession = localStorage.getItem('amiko_session');
@@ -29,60 +64,65 @@ export default function GuardianPage() {
     }
     setSession(parsed);
 
-    // Initial state loading
-    const loadState = () => {
-      // Find linked elder's profile details
-      const elderProfile = localStorage.getItem('amiko_registered_elder');
-      if (elderProfile) {
-        setProfile(JSON.parse(elderProfile));
-      }
+    loadBackendState(parsed.phone);
 
-      const bal = localStorage.getItem('amiko_wallet_balance');
-      if (bal !== null) setWalletBalance(parseInt(bal));
-
-      const txs = localStorage.getItem('amiko_transactions');
-      if (txs) setTransactions(JSON.parse(txs));
-
-      const bks = localStorage.getItem('amiko_bookings');
-      if (bks) setBookings(JSON.parse(bks));
-
-      const sos = localStorage.getItem('amiko_sos_event');
-      if (sos) setSosEvent(JSON.parse(sos));
-    };
-
-    loadState();
-
-    // Sync state updates across tabs
+    // Synchronize tab updates
     const handleStorageChange = (e) => {
-      if (e.key === 'amiko_wallet_balance' && e.newValue !== null) {
-        setWalletBalance(parseInt(e.newValue));
-      }
-      if (e.key === 'amiko_transactions' && e.newValue) {
-        setTransactions(JSON.parse(e.newValue));
-      }
-      if (e.key === 'amiko_bookings' && e.newValue) {
-        setBookings(JSON.parse(e.newValue));
-      }
-      if (e.key === 'amiko_sos_event') {
-        setSosEvent(e.newValue ? JSON.parse(e.newValue) : null);
-      }
-      if (e.key === 'amiko_registered_elder' && e.newValue) {
-        setProfile(JSON.parse(e.newValue));
+      if (e.key === 'amiko_bookings' || e.key === 'amiko_wallet_balance' || e.key === 'amiko_sos_event') {
+        loadBackendState(parsed.phone);
       }
     };
-
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    
+    // Polling interval
+    const interval = setInterval(() => loadBackendState(parsed.phone), 4000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
   }, [router]);
 
-  const updateWallet = (newBal) => {
-    setWalletBalance(newBal);
-    localStorage.setItem('amiko_wallet_balance', newBal.toString());
+  // Handle simulated purchase webhook post to API
+  const updateWallet = async (newBal) => {
+    // Handled via payments webhook triggers
   };
 
-  const updateTransactions = (newTxs) => {
-    setTransactions(newTxs);
-    localStorage.setItem('amiko_transactions', JSON.stringify(newTxs));
+  const updateTransactions = async (newTxs) => {
+    if (!session) return;
+    const latestTx = newTxs[0]; // GuardianDashboard adds the new purchase at index 0
+
+    if (latestTx && latestTx.transaction_type === 'purchase') {
+      try {
+        // 1. Create order
+        const oRes = await fetch('/api/payments/create-order', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amount: latestTx.amount * 50, phone: session.phone })
+        });
+
+        if (oRes.ok) {
+          const oData = await oRes.json();
+          // 2. Dispatch webhook (Signature capturing)
+          const wRes = await fetch('/api/payments/webhook', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              order_id: oData.order_id,
+              coupons: latestTx.amount,
+              phone: session.phone
+            })
+          });
+
+          if (wRes.ok) {
+            localStorage.setItem('amiko_wallet_balance', Date.now().toString());
+            loadBackendState(session.phone);
+          }
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
   };
 
   if (!session) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-sm font-bold text-slate-500">Checking gates...</div>;

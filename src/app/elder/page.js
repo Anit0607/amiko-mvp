@@ -8,7 +8,7 @@ export default function ElderPage() {
   const router = useRouter();
   const [session, setSession] = useState(null);
   
-  // Storage synced states
+  // Backend synced states
   const [profile, setProfile] = useState(null);
   const [isApproved, setIsApproved] = useState(false);
   const [walletBalance, setWalletBalance] = useState(18);
@@ -21,6 +21,34 @@ export default function ElderPage() {
     voiceGuidance: false
   });
 
+  const loadBackendState = async (phone) => {
+    try {
+      // 1. Fetch wallet balance & transaction history
+      const wRes = await fetch(`/api/wallet?phone=${encodeURIComponent(phone)}`);
+      if (wRes.ok) {
+        const wData = await wRes.json();
+        setWalletBalance(wData.balance);
+      }
+
+      // 2. Fetch care bookings
+      const bRes = await fetch(`/api/bookings?phone=${encodeURIComponent(phone)}`);
+      if (bRes.ok) {
+        const bData = await bRes.json();
+        setBookings(bData.bookings || []);
+      }
+
+      // 3. Fetch active SOS events
+      const sRes = await fetch('/api/sos');
+      if (sRes.ok) {
+        const sData = await sRes.json();
+        const activeSos = sData.sos_events?.find(s => s.phone === phone);
+        setSosEvent(activeSos || null);
+      }
+    } catch (err) {
+      console.error('Error fetching backend details:', err);
+    }
+  };
+
   useEffect(() => {
     // 1. Role-Gating: Check Session
     const rawSession = localStorage.getItem('amiko_session');
@@ -31,87 +59,115 @@ export default function ElderPage() {
     
     const parsed = JSON.parse(rawSession);
     if (parsed.role !== 'elder') {
-      // Redirect to their actual role-gated route
       router.push(`/${parsed.role}`);
       return;
     }
     setSession(parsed);
 
-    // 2. Load Local Data
-    const loadState = () => {
-      const storedProfile = localStorage.getItem(`amiko_profile_${parsed.phone}`);
-      if (storedProfile) {
-        const prof = JSON.parse(storedProfile);
-        setProfile(prof);
-        setIsApproved(prof.status === 'active');
-      } else {
-        router.push('/onboarding');
-      }
+    // 2. Load profile info
+    const storedProfile = localStorage.getItem(`amiko_profile_${parsed.phone}`);
+    if (storedProfile) {
+      const prof = JSON.parse(storedProfile);
+      setProfile(prof);
+      setIsApproved(prof.status === 'active');
+    } else {
+      router.push('/onboarding');
+      return;
+    }
 
-      const bal = localStorage.getItem('amiko_wallet_balance');
-      if (bal !== null) setWalletBalance(parseInt(bal));
+    loadBackendState(parsed.phone);
 
-      const bks = localStorage.getItem('amiko_bookings');
-      if (bks) setBookings(JSON.parse(bks));
-
-      const sos = localStorage.getItem('amiko_sos_event');
-      if (sos) setSosEvent(JSON.parse(sos));
-    };
-
-    loadState();
-
-    // 3. Storage Synced Tab Listener
+    // 3. Setup polling or cross-tab synchronization listener
     const handleStorageChange = (e) => {
-      if (e.key === 'amiko_wallet_balance' && e.newValue !== null) {
-        setWalletBalance(parseInt(e.newValue));
-      }
-      if (e.key === 'amiko_bookings' && e.newValue) {
-        setBookings(JSON.parse(e.newValue));
-      }
-      if (e.key === 'amiko_sos_event') {
-        setSosEvent(e.newValue ? JSON.parse(e.newValue) : null);
-      }
-      if (e.key === `amiko_profile_${parsed.phone}` && e.newValue) {
-        const prof = JSON.parse(e.newValue);
-        setProfile(prof);
-        setIsApproved(prof.status === 'active');
+      if (e.key === 'amiko_bookings' || e.key === 'amiko_wallet_balance' || e.key === 'amiko_sos_event') {
+        loadBackendState(parsed.phone);
       }
     };
-
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    
+    // Polling interval to simulate database updates
+    const interval = setInterval(() => loadBackendState(parsed.phone), 4000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      clearInterval(interval);
+    };
   }, [router]);
 
-  // Set local state triggers that update storage
-  const updateBookings = (newBks) => {
-    setBookings(newBks);
-    localStorage.setItem('amiko_bookings', JSON.stringify(newBks));
+  // Create booking via POST API
+  const updateBookings = async (newBks) => {
+    if (!session) return;
+    const latestBk = newBks[0]; // ElderPwa adds new bookings to index 0
+
+    try {
+      const res = await fetch('/api/bookings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          service_label: latestBk.service_label,
+          date: latestBk.scheduled_date,
+          slot: latestBk.scheduled_time_slot,
+          cost: latestBk.cost,
+          phone: session.phone
+        })
+      });
+
+      if (res.ok) {
+        // Trigger cross-tab sync notify
+        localStorage.setItem('amiko_bookings', Date.now().toString());
+        loadBackendState(session.phone);
+      } else {
+        const err = await res.json();
+        alert(err.error || 'Booking failed');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error. Booking failed.');
+    }
   };
 
-  const updateWallet = (newBal) => {
+  // Simulated local wallet setters
+  const updateWallet = async (newBal) => {
     setWalletBalance(newBal);
     localStorage.setItem('amiko_wallet_balance', newBal.toString());
   };
 
   const updateTransactions = (cb) => {
-    const rawTx = localStorage.getItem('amiko_transactions') || '[]';
-    const txList = JSON.parse(rawTx);
-    const updated = cb(txList);
-    localStorage.setItem('amiko_transactions', JSON.stringify(updated));
+    // Handled in backend, local state stub
   };
 
-  const updateSos = (newSos) => {
-    setSosEvent(newSos);
-    if (newSos) {
-      localStorage.setItem('amiko_sos_event', JSON.stringify(newSos));
-      // Automatically redirect to SOS route
-      router.push('/sos');
-    } else {
-      localStorage.removeItem('amiko_sos_event');
+  // Trigger SOS via POST API
+  const updateSos = async (newSos) => {
+    if (!session) return;
+
+    try {
+      if (newSos) {
+        const res = await fetch('/api/sos/trigger', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ phone: session.phone })
+        });
+        if (res.ok) {
+          const data = await res.json();
+          setSosEvent(data.sos);
+          localStorage.setItem('amiko_sos_event', JSON.stringify(data.sos));
+          router.push('/sos');
+        }
+      } else {
+        if (sosEvent) {
+          const res = await fetch(`/api/sos/${sosEvent.id}/resolve`, { method: 'POST' });
+          if (res.ok) {
+            setSosEvent(null);
+            localStorage.removeItem('amiko_sos_event');
+          }
+        }
+      }
+    } catch (err) {
+      console.error(err);
     }
   };
 
-  if (!session || !profile) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-sm font-bold text-slate-500">Checking gates...</div>;
+  if (!session || !profile) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-sm font-bold text-slate-500">Checking credentials...</div>;
 
   return (
     <div className="min-h-screen bg-slate-100 flex items-center justify-center py-6">
